@@ -1,18 +1,21 @@
-import sys
 import subprocess
+
+from typing import Annotated
 
 import asyncio
 
-import string
-import random
-import time
-
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi import FastAPI, Header, Request
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 import yt_dlp
 
 app = FastAPI()
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+templates = Jinja2Templates(directory="templates")
 
 
 async def get_vid(video):
@@ -20,8 +23,12 @@ async def get_vid(video):
 
 
 @app.get("/watch")
-async def main(v: str):
+async def main(request: Request, v: str, user_agent: Annotated[str | None, Header()] = None):
     video_str = "https://www.youtube.com/watch?v=" + v
+    if user_agent.startswith("Mozilla"):
+        return templates.TemplateResponse(
+                request=request,name="watch.html", context={"link": video_str}
+                )
     url = await get_vid(video_str)
-    print(url.decode('ascii'))
+    await asyncio.sleep(5) # idk why but the first video slices dont work if playlist is immediately played so i added this sleep
     return RedirectResponse(url.decode("ascii"), status_code=302)
